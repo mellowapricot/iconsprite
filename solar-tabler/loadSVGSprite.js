@@ -1,25 +1,41 @@
 const getIconPaths = () => {
 	return {
-		SOLAR: "https://cdn.jsdelivr.net/gh/mellowapricot/solar-iconset@main/solar-icon.svg",
-		TABLER: "https://cdn.jsdelivr.net/gh/mellowapricot/tabler-icons@3.3.0/tabler-icon.svg"
+		SOLAR: {
+			primary: "https://cdn.jsdelivr.net/gh/mellowapricot/solar-iconset@main/solar-icon.svg",
+			fallback: "https://mellowapricot.github.io/solar-iconset/solar-icon.svg"
+		},
+		TABLER: {
+			primary: "https://cdn.jsdelivr.net/gh/mellowapricot/tabler-icons@3.3.0/tabler-icon.svg",
+			fallback: "https://mellowapricot.github.io/tabler-icons/tabler-icon.svg"
+		}
 	};
-}
+};
 
-async function fetchSvg(iconName, retryCount = 0) {
-	try {
-		const iconPaths = getIconPaths();
-		const response = await fetch(iconPaths[iconName]);
-		if (!response.ok) {
-			throw new Error(`Failed to load ${iconPaths[iconName]}`);
+async function fetchSvg(iconName) {
+	const iconPaths = getIconPaths();
+	const { primary, fallback } = iconPaths[iconName];
+
+	async function attemptFetch(url) {
+		try {
+			const response = await fetch(url);
+			if (!response.ok) {
+				throw new Error(`${url}을(를) 불러오는 데 실패했습니다.`);
+			}
+			return await response.text();
+		} catch (error) {
+			console.error(error);
+			return null;
 		}
-		return await response.text();
-	} catch (error) {
-		console.error(error);
-		if (retryCount < 1) {
-			return fetchSvg(iconName, retryCount + 1);
-		}
-		return "";
 	}
+
+	let svgText = await attemptFetch(primary);
+
+	if (!svgText) {
+		console.log(`${iconName}의 기본 URL 불러오기에 실패하여 대체 URL을 시도합니다...`);
+		svgText = await attemptFetch(fallback);
+	}
+
+	return svgText || "";
 }
 
 function createSvgContainer() {
@@ -30,8 +46,7 @@ function createSvgContainer() {
 }
 
 async function insertSvgsIntoContainer(container) {
-	const iconPaths = getIconPaths();
-	const iconNames = Object.keys(iconPaths)
+	const iconNames = Object.keys(getIconPaths());
 	const svgTexts = await Promise.all(iconNames.map(fetchSvg));
 	svgTexts.forEach(svgText => container.insertAdjacentHTML("beforeend", svgText));
 }
